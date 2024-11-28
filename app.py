@@ -25,7 +25,7 @@ PASTEL_COLORS = px.colors.qualitative.Pastel
 st.set_page_config(
     page_title="Tableau de Bord des Patients",
     page_icon=":hospital:",
-    layout="wide",  # Use the entire screen width
+    layout="wide",  # Utiliser toute la largeur de l'écran
     initial_sidebar_state="expanded",
 )
 
@@ -52,23 +52,70 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Define data file paths
-csv_file = "final_data.csv"
+patient_csv_file = "patient_data.csv"
+nurse_csv_file = "nurse_inputs.csv"
 
-# Function to load data with correct encoding
+# Function to load patient data with correct encoding
 @st.cache_data
-def load_data(csv_file):
+def load_patient_data(csv_file):
     try:
         data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage à 'utf-8'
-        logging.debug(f"Données chargées avec succès depuis {csv_file}")
+        logging.debug(f"Données des patients chargées avec succès depuis {csv_file}")
         return data
     except Exception as e:
-        logging.error(f"Erreur lors du chargement des données depuis {csv_file}: {e}")
+        logging.error(f"Erreur lors du chargement des données des patients depuis {csv_file}: {e}")
         return pd.DataFrame()
 
-# Load data
-final_data = load_data(csv_file)
-logging.debug("Colonnes des données finales: %s", final_data.columns.tolist())
-logging.debug("Échantillon des données finales:\n%s", final_data.head())
+# Function to load nurse inputs from CSV
+@st.cache_data
+def load_nurse_inputs(nurse_csv_file):
+    try:
+        if not os.path.exists(nurse_csv_file):
+            # Créer un DataFrame vide avec les colonnes appropriées si le fichier n'existe pas
+            nurse_data = pd.DataFrame(columns=["ID", "objectives", "tasks", "comments"])
+            nurse_data.to_csv(nurse_csv_file, index=False, encoding='utf-8')
+            logging.debug(f"Fichier {nurse_csv_file} créé car il n'existait pas.")
+        else:
+            nurse_data = pd.read_csv(nurse_csv_file, dtype={'ID': str}, encoding='utf-8')
+            logging.debug(f"Entrées infirmières chargées avec succès depuis {nurse_csv_file}")
+        return nurse_data
+    except Exception as e:
+        logging.error(f"Erreur lors du chargement des entrées infirmières depuis {nurse_csv_file}: {e}")
+        return pd.DataFrame()
+
+# Function to save nurse inputs to CSV
+def save_nurse_inputs(nurse_csv_file, patient_id, objectives, tasks, comments):
+    try:
+        nurse_data = load_nurse_inputs(nurse_csv_file)
+        if patient_id in nurse_data["ID"].values:
+            nurse_data.loc[nurse_data["ID"] == patient_id, ["objectives", "tasks", "comments"]] = [objectives, tasks, comments]
+        else:
+            new_entry = {"ID": patient_id, "objectives": objectives, "tasks": tasks, "comments": comments}
+            nurse_data = pd.concat([nurse_data, pd.DataFrame([new_entry])], ignore_index=True)
+        nurse_data.to_csv(nurse_csv_file, index=False, encoding='utf-8')  # Changement d'encodage
+        logging.debug(f"Entrées infirmières sauvegardées pour l'ID {patient_id}")
+        st.success("Entrées infirmières sauvegardées avec succès.")
+    except Exception as e:
+        logging.error(f"Erreur lors de la sauvegarde des entrées infirmières pour l'ID {patient_id}: {e}")
+        st.error("Erreur lors de la sauvegarde des entrées infirmières.")
+
+# Load patient data and nurse inputs
+final_data = load_patient_data(patient_csv_file)
+nurse_data = load_nurse_inputs(nurse_csv_file)
+
+# Vérifier si la colonne 'ID' existe dans les données des patients
+if 'ID' not in final_data.columns:
+    st.error("La colonne 'ID' est manquante dans le fichier CSV des patients.")
+    st.stop()
+
+# Vérifier si la colonne 'ID' existe dans les entrées infirmières
+if not nurse_data.empty and 'ID' not in nurse_data.columns:
+    st.error("La colonne 'ID' est manquante dans le fichier CSV des entrées infirmières.")
+    st.stop()
+
+# Afficher les colonnes et les premières lignes pour débogage
+st.write("Colonnes chargées dans les données des patients :", final_data.columns.tolist())
+st.write("Premières lignes des données des patients :", final_data.head())
 
 # MADRS Items Mapping (en français)
 madrs_items_mapping = {
@@ -114,34 +161,18 @@ with st.sidebar:
     patient_ids = sorted(final_data["ID"].unique(), key=extract_number) if not final_data.empty else []
     selected_patient_id = st.selectbox("Sélectionner l'ID du Patient", patient_ids) if patient_ids else None
 
-# Function to load nurse inputs from CSV
-def load_nurse_inputs(patient_id):
-    try:
-        nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage
-        row = nurse_data[nurse_data["ID"] == patient_id]
-        if not row.empty:
-            return row.iloc[0][["objectives", "tasks", "comments"]].fillna("")
-        else:
-            return {"objectives": "", "tasks": "", "comments": ""}
-    except Exception as e:
-        logging.error(f"Erreur lors du chargement des entrées infirmières depuis {csv_file}: {e}")
-        return {"objectives": "", "tasks": "", "comments": ""}
+    # Afficher le nombre de patients chargés pour débogage
+    st.write(f"Nombre de patients chargés : {len(patient_ids)}")
 
-# Function to save nurse inputs to CSV
-def save_nurse_inputs(patient_id, objectives, tasks, comments):
-    try:
-        nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage
-        if patient_id in nurse_data["ID"].values:
-            nurse_data.loc[nurse_data["ID"] == patient_id, ["objectives", "tasks", "comments"]] = [objectives, tasks, comments]
-        else:
-            new_entry = {"ID": patient_id, "objectives": objectives, "tasks": tasks, "comments": comments}
-            nurse_data = nurse_data.append(new_entry, ignore_index=True)
-        nurse_data.to_csv(csv_file, index=False, encoding='utf-8')  # Changement d'encodage
-        logging.debug(f"Entrées infirmières sauvegardées pour l'ID {patient_id}")
-        st.success("Entrées infirmières sauvegardées avec succès.")
-    except Exception as e:
-        logging.error(f"Erreur lors de la sauvegarde des entrées infirmières pour l'ID {patient_id}: {e}")
-        st.error("Erreur lors de la sauvegarde des entrées infirmières.")
+# Function to load nurse inputs from nurse_inputs.csv
+def get_nurse_inputs(patient_id):
+    if nurse_data.empty:
+        return {"objectives": "", "tasks": "", "comments": ""}
+    row = nurse_data[nurse_data["ID"] == patient_id]
+    if not row.empty:
+        return row.iloc[0][["objectives", "tasks", "comments"]].fillna("").to_dict()
+    else:
+        return {"objectives": "", "tasks": "", "comments": ""}
 
 # Patient Dashboard Page
 def patient_dashboard():
@@ -170,9 +201,11 @@ def patient_dashboard():
             st.write(f"**Revenu (Baseline) :** {revenu_formate}")
         with col2:
             st.subheader("Objectifs SMART")
-            objectives = patient_data.get("objectives", "N/A")
-            tasks = patient_data.get("tasks", "N/A")
-            comments = patient_data.get("comments", "N/A")
+            # Charger les entrées infirmières pour ce patient
+            nurse_inputs = get_nurse_inputs(selected_patient_id)
+            objectives = nurse_inputs.get("objectives", "N/A")
+            tasks = nurse_inputs.get("tasks", "N/A")
+            comments = nurse_inputs.get("comments", "N/A")
             st.write(f"**Objectifs :** {objectives}")
             st.write(f"**Tâches :** {tasks}")
             st.write(f"**Commentaires :** {comments}")
@@ -300,6 +333,7 @@ def patient_dashboard():
                     values_bl = list(dimension_scores_bl.values())
                     values_fu = list(dimension_scores_fu.values())
 
+                    # Fermeture du graphique radar
                     categories += [categories[0]]
                     values_bl += [values_bl[0]]
                     values_fu += [values_fu[0]]
@@ -375,7 +409,7 @@ def patient_dashboard():
         submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
-            save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
+            save_nurse_inputs(nurse_csv_file, selected_patient_id, objectives_input, tasks_input, comments_input)
 
     st.markdown("---")
 
@@ -395,7 +429,7 @@ def nurse_inputs_page():
         return
 
     st.header("Entrées Infirmières")
-    nurse_inputs = load_nurse_inputs(selected_patient_id)
+    nurse_inputs = get_nurse_inputs(selected_patient_id)
     with st.form(key='nursing_inputs_form'):
         objectives_input = st.text_area("Objectifs SMART", height=100, value=nurse_inputs.get("objectives", ""))
         tasks_input = st.text_area("Tâches d'Activation Comportementale", height=100, value=nurse_inputs.get("tasks", ""))
@@ -403,7 +437,7 @@ def nurse_inputs_page():
         submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
-            save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
+            save_nurse_inputs(nurse_csv_file, selected_patient_id, objectives_input, tasks_input, comments_input)
 
     st.markdown("---")
 
@@ -463,6 +497,7 @@ def details_pid5_page():
     values_bl = list(dimension_scores_bl.values())
     values_fu = list(dimension_scores_fu.values())
 
+    # Fermeture du graphique radar
     categories += [categories[0]]
     values_bl += [values_bl[0]]
     values_fu += [values_fu[0]]
