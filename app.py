@@ -70,7 +70,7 @@ final_data = load_data(csv_file)
 logging.debug("Colonnes des données finales: %s", final_data.columns.tolist())
 logging.debug("Échantillon des données finales:\n%s", final_data.head())
 
-# MADRS Items Mapping
+# MADRS Items Mapping (en français)
 madrs_items_mapping = {
     1: "Tristesse Apparente",
     2: "Tristesse Signalée",
@@ -84,7 +84,7 @@ madrs_items_mapping = {
     10: "Pensées Suicidaires"
 }
 
-# PID-5 Dimensions Mapping
+# PID-5 Dimensions Mapping (en français)
 pid5_dimensions_mapping = {
     'Affect Négatif': [8, 9, 10, 11, 15],
     'Détachement': [4, 13, 14, 16, 18],
@@ -159,8 +159,9 @@ def patient_dashboard():
         with col1:
             st.subheader("Informations du Patient")
             st.write(f"**Âge :** {patient_data['age']}")
-            sex_numeric = patient_data['sexe']
-            sex = "Homme" if sex_numeric == '1' else "Femme" if sex_numeric == '2' else "Autre"
+            sex_code = patient_data['sexe']
+            sex_mapping = {'H': 'Homme', 'F': 'Femme', 'Autre': 'Autre'}
+            sex = sex_mapping.get(sex_code, "N/A")
             st.write(f"**Sexe :** {sex}")
             annees_education = patient_data.get('annees_education_bl', 'N/A')
             st.write(f"**Années d'éducation (Baseline) :** {annees_education}")
@@ -184,29 +185,27 @@ def patient_dashboard():
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Données Démographiques")
-            demog_cols = ["sexe", "age", "annees_education_bl", "revenu_bl"]
             demog_labels = ["Sexe", "Âge", "Années d'éducation (Baseline)", "Revenu (Baseline)"]
             demog_values = [
-                "Homme" if patient_data['sexe'] == '1' else "Femme" if patient_data['sexe'] == '2' else "Autre",
+                sex,  # Utilise le sexe mappé précédemment
                 patient_data['age'],
                 patient_data.get('annees_education_bl', 'N/A'),
-                f"${patient_data.get('revenu_bl', 'N/A')}" if pd.notna(patient_data.get('revenu_bl', np.nan)) else 'N/A'
+                revenu_formate
             ]
             demog_df = pd.DataFrame({
-                "": demog_labels,
-                "Valeurs": demog_values
+                "Paramètre": demog_labels,
+                "Valeur": demog_values
             })
             st.table(demog_df)
         with col2:
             st.subheader("Données Cliniques")
-            clin_cols = ["comorbidities", "pregnant", "cigarette_bl", "alcool_bl", "cocaine_bl"]
             clin_labels = ["Comorbidités", "Enceinte", "Cigarettes (Baseline)", "Alcool (Baseline)", "Cocaïne (Baseline)"]
             # Gestion de la colonne "pregnant"
-            pregnant_val = patient_data.get('pregnant', np.nan)
-            if pd.isna(pregnant_val):
-                pregnant_display = "N/A"
+            pregnant_val = patient_data.get('pregnant', 'N/A')
+            if pregnant_val in ["Oui", "Non"]:
+                pregnant_display = pregnant_val
             else:
-                pregnant_display = "Oui" if pregnant_val == 1 else "Non" if pregnant_val == 0 else "N/A"
+                pregnant_display = "N/A"
             clin_values = [
                 patient_data.get('comorbidities', 'N/A'),
                 pregnant_display,
@@ -215,8 +214,8 @@ def patient_dashboard():
                 patient_data.get('cocaine_bl', 'N/A')
             ]
             clin_df = pd.DataFrame({
-                "": clin_labels,
-                "Valeurs": clin_values
+                "Paramètre": clin_labels,
+                "Valeur": clin_values
             })
             st.table(clin_df)
 
@@ -311,14 +310,14 @@ def patient_dashboard():
                         theta=categories,
                         fill='toself',
                         name='Baseline',
-                        line_color='blue'
+                        line_color=PASTEL_COLORS[0]
                     ))
                     fig_spider.add_trace(go.Scatterpolar(
                         r=values_fu,
                         theta=categories,
                         fill='toself',
                         name='Jour 30',
-                        line_color='red'
+                        line_color=PASTEL_COLORS[1]
                     ))
                     fig_spider.update_layout(
                         polar=dict(
@@ -358,7 +357,7 @@ def patient_dashboard():
                         markers=True,
                         title="Progression PHQ-9",
                         template="plotly_white",
-                        color_discrete_sequence=['#AEC6CF']  # Couleur pastel
+                        color_discrete_sequence=[PASTEL_COLORS[2]]  # Utiliser une couleur pastel différente
                     )
                     fig_phq9.update_layout(xaxis_title="Jour", yaxis_title="Score PHQ-9")
                     st.plotly_chart(fig_phq9, use_container_width=True)
