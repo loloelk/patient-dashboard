@@ -21,7 +21,7 @@ logging.basicConfig(
 # Définir une palette de couleurs pastel pour les graphiques
 PASTEL_COLORS = px.colors.qualitative.Pastel
 
-# Set page configuration for better aesthetics
+# Configuration de la page pour une meilleure esthétique
 st.set_page_config(
     page_title="Tableau de Bord des Patients",
     page_icon=":hospital:",
@@ -29,93 +29,69 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Apply custom CSS for styling
+# Appliquer du CSS personnalisé pour le style (sans cacher les colonnes)
 st.markdown("""
     <style>
-        /* Adjust the font sizes */
+        /* Ajuster les tailles de police */
         h1, h2, h3, h4 {
             color: #2c3e50;
         }
-        /* Style the sidebar */
+        /* Style de la barre latérale */
         [data-testid="stSidebar"] {
             background-color: #ecf0f1;
         }
-        /* Style the main content area */
+        /* Style de la zone de contenu principal */
         .reportview-container .main .block-container {
             padding-top: 2rem;
         }
-        /* Style tables */
+        /* Style des tableaux */
         .dataframe th, .dataframe td {
             padding: 0.5rem;
+            text-align: left;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Define data file paths
-patient_csv_file = "patient_data.csv"
-nurse_csv_file = "nurse_inputs.csv"
+# Définir le chemin du fichier de données
+csv_file = "final_data_utf8.csv"  # Utilisez le fichier converti en UTF-8
 
-# Function to load patient data with correct encoding
+# Fonction pour charger les données avec le bon encodage
 @st.cache_data
-def load_patient_data(csv_file):
+def load_data(csv_file):
     try:
-        data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage à 'utf-8'
-        logging.debug(f"Données des patients chargées avec succès depuis {csv_file}")
+        data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')
+        logging.debug(f"Données chargées avec succès depuis {csv_file} avec 'utf-8'")
         return data
+    except UnicodeDecodeError:
+        logging.warning(f"Erreur d'encodage avec 'utf-8'. Tentative de chargement avec 'latin1'.")
+        try:
+            data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='latin1')
+            logging.debug(f"Données chargées avec succès depuis {csv_file} avec 'latin1'")
+            return data
+        except Exception as e:
+            logging.error(f"Erreur lors du chargement des données depuis {csv_file}: {e}")
+            return pd.DataFrame()
     except Exception as e:
-        logging.error(f"Erreur lors du chargement des données des patients depuis {csv_file}: {e}")
+        logging.error(f"Erreur lors du chargement des données depuis {csv_file}: {e}")
         return pd.DataFrame()
 
-# Function to load nurse inputs from CSV
-@st.cache_data
-def load_nurse_inputs(nurse_csv_file):
-    try:
-        if not os.path.exists(nurse_csv_file):
-            # Créer un DataFrame vide avec les colonnes appropriées si le fichier n'existe pas
-            nurse_data = pd.DataFrame(columns=["ID", "objectives", "tasks", "comments"])
-            nurse_data.to_csv(nurse_csv_file, index=False, encoding='utf-8')
-            logging.debug(f"Fichier {nurse_csv_file} créé car il n'existait pas.")
-        else:
-            nurse_data = pd.read_csv(nurse_csv_file, dtype={'ID': str}, encoding='utf-8')
-            logging.debug(f"Entrées infirmières chargées avec succès depuis {nurse_csv_file}")
-        return nurse_data
-    except Exception as e:
-        logging.error(f"Erreur lors du chargement des entrées infirmières depuis {nurse_csv_file}: {e}")
-        return pd.DataFrame()
+# Charger les données
+final_data = load_data(csv_file)
+logging.debug("Colonnes des données finales : %s", final_data.columns.tolist())
+logging.debug("Échantillon des données finales :\n%s", final_data.head())
 
-# Function to save nurse inputs to CSV
-def save_nurse_inputs(nurse_csv_file, patient_id, objectives, tasks, comments):
-    try:
-        nurse_data = load_nurse_inputs(nurse_csv_file)
-        if patient_id in nurse_data["ID"].values:
-            nurse_data.loc[nurse_data["ID"] == patient_id, ["objectives", "tasks", "comments"]] = [objectives, tasks, comments]
-        else:
-            new_entry = {"ID": patient_id, "objectives": objectives, "tasks": tasks, "comments": comments}
-            nurse_data = pd.concat([nurse_data, pd.DataFrame([new_entry])], ignore_index=True)
-        nurse_data.to_csv(nurse_csv_file, index=False, encoding='utf-8')  # Changement d'encodage
-        logging.debug(f"Entrées infirmières sauvegardées pour l'ID {patient_id}")
-        st.success("Entrées infirmières sauvegardées avec succès.")
-    except Exception as e:
-        logging.error(f"Erreur lors de la sauvegarde des entrées infirmières pour l'ID {patient_id}: {e}")
-        st.error("Erreur lors de la sauvegarde des entrées infirmières.")
-
-# Load patient data and nurse inputs
-final_data = load_patient_data(patient_csv_file)
-nurse_data = load_nurse_inputs(nurse_csv_file)
-
-# Vérifier si la colonne 'ID' existe dans les données des patients
+# Vérifier que la colonne 'ID' existe et est unique et non vide
 if 'ID' not in final_data.columns:
     st.error("La colonne 'ID' est manquante dans le fichier CSV des patients.")
     st.stop()
 
-# Vérifier si la colonne 'ID' existe dans les entrées infirmières
-if not nurse_data.empty and 'ID' not in nurse_data.columns:
-    st.error("La colonne 'ID' est manquante dans le fichier CSV des entrées infirmières.")
+if final_data['ID'].isnull().any():
+    st.error("Certaines entrées de la colonne 'ID' sont vides. Veuillez les remplir.")
     st.stop()
 
-# Afficher les colonnes et les premières lignes pour débogage
-st.write("Colonnes chargées dans les données des patients :", final_data.columns.tolist())
-st.write("Premières lignes des données des patients :", final_data.head())
+if final_data['ID'].duplicated().any():
+    st.error("Il y a des IDs dupliqués dans la colonne 'ID'. Veuillez assurer l'unicité.")
+    st.stop()
 
 # MADRS Items Mapping (en français)
 madrs_items_mapping = {
@@ -140,16 +116,16 @@ pid5_dimensions_mapping = {
     'Psychoticisme': [7, 12, 21, 23, 24]
 }
 
-# Check for PID-5 and PHQ-9 data availability
+# Vérifier la disponibilité des données PID-5 et PHQ-9
 has_pid5 = any(col.startswith('pid5_') for col in final_data.columns)
 has_phq9 = any(col.startswith('phq9_') for col in final_data.columns)
 
-# Define a safe sort key function for patient IDs
+# Fonction de tri sécurisée pour les IDs des patients
 def extract_number(id_str):
     match = re.search(r'\d+', id_str)
     return int(match.group()) if match else float('inf')
 
-# Sidebar layout
+# Mise en page de la barre latérale
 with st.sidebar:
     st.title("Tableau de Bord des Patients")
     st.markdown("---")
@@ -164,17 +140,53 @@ with st.sidebar:
     # Afficher le nombre de patients chargés pour débogage
     st.write(f"Nombre de patients chargés : {len(patient_ids)}")
 
-# Function to load nurse inputs from nurse_inputs.csv
-def get_nurse_inputs(patient_id):
-    if nurse_data.empty:
-        return {"objectives": "", "tasks": "", "comments": ""}
-    row = nurse_data[nurse_data["ID"] == patient_id]
-    if not row.empty:
-        return row.iloc[0][["objectives", "tasks", "comments"]].fillna("").to_dict()
-    else:
+# Fonction pour charger les entrées infirmières depuis le CSV
+def load_nurse_inputs(patient_id):
+    try:
+        # Charger avec 'utf-8', sinon 'latin1'
+        try:
+            nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')
+        except UnicodeDecodeError:
+            logging.warning(f"Erreur d'encodage avec 'utf-8' lors du chargement des entrées infirmières. Tentative avec 'latin1'.")
+            nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='latin1')
+        
+        row = nurse_data[nurse_data["ID"] == patient_id]
+        if not row.empty:
+            return row.iloc[0][["objectives", "tasks", "comments"]].fillna("")
+        else:
+            return {"objectives": "", "tasks": "", "comments": ""}
+    except Exception as e:
+        logging.error(f"Erreur lors du chargement des entrées infirmières depuis {csv_file}: {e}")
         return {"objectives": "", "tasks": "", "comments": ""}
 
-# Patient Dashboard Page
+# Fonction pour sauvegarder les entrées infirmières dans le CSV
+def save_nurse_inputs(patient_id, objectives, tasks, comments):
+    try:
+        # Charger avec 'utf-8', sinon 'latin1'
+        try:
+            nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')
+        except UnicodeDecodeError:
+            logging.warning(f"Erreur d'encodage avec 'utf-8' lors du chargement des entrées infirmières pour sauvegarde. Tentative avec 'latin1'.")
+            nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='latin1')
+        
+        if patient_id in nurse_data["ID"].values:
+            nurse_data.loc[nurse_data["ID"] == patient_id, ["objectives", "tasks", "comments"]] = [objectives, tasks, comments]
+        else:
+            new_entry = {"ID": patient_id, "objectives": objectives, "tasks": tasks, "comments": comments}
+            nurse_data = nurse_data.append(new_entry, ignore_index=True)
+        nurse_data.to_csv(csv_file, index=False, encoding='utf-8')  # Sauvegarder avec 'utf-8'
+        logging.debug(f"Entrées infirmières sauvegardées pour l'ID {patient_id}")
+        st.success("Entrées infirmières sauvegardées avec succès.")
+    except Exception as e:
+        logging.error(f"Erreur lors de la sauvegarde des entrées infirmières pour l'ID {patient_id}: {e}")
+        st.error("Erreur lors de la sauvegarde des entrées infirmières.")
+
+# Fonction pour obtenir les entrées infirmières d'un patient
+def get_nurse_inputs(patient_id):
+    inputs = load_nurse_inputs(patient_id)
+    return inputs
+
+# Page "Tableau de Bord du Patient"
 def patient_dashboard():
     if not selected_patient_id:
         st.warning("Aucun patient sélectionné.")
@@ -182,7 +194,7 @@ def patient_dashboard():
 
     patient_data = final_data[final_data["ID"] == selected_patient_id].iloc[0]
 
-    # Patient Information and SMART Objectives
+    # Aperçu du Patient et Objectifs SMART
     st.header("Aperçu du Patient")
 
     with st.container():
@@ -190,14 +202,19 @@ def patient_dashboard():
         with col1:
             st.subheader("Informations du Patient")
             st.write(f"**Âge :** {patient_data['age']}")
-            sex_code = patient_data['sexe']
-            sex_mapping = {'H': 'Homme', 'F': 'Femme', 'Autre': 'Autre'}
-            sex = sex_mapping.get(sex_code, "N/A")
+            sex_numeric = patient_data['sexe']
+            # Correction de l'affichage de "Sexe"
+            sex = "Homme" if sex_numeric == '1' else "Femme" if sex_numeric == '2' else "Autre"
             st.write(f"**Sexe :** {sex}")
-            annees_education = patient_data.get('annees_education_bl', 'N/A')
-            st.write(f"**Années d'éducation (Baseline) :** {annees_education}")
+            education_years = patient_data.get('annees_education_bl', 'N/A')
+            st.write(f"**Années d'éducation (Baseline) :** {education_years}")
             revenu_bl = patient_data.get('revenu_bl', 'N/A')
-            revenu_formate = f"${revenu_bl}" if pd.notna(revenu_bl) and revenu_bl != 'N/A' else 'N/A'
+            # Ajout du symbole '$' devant le revenu et formatage avec des virgules
+            try:
+                revenu_int = int(revenu_bl)
+                revenu_formate = f"${revenu_int:,}"
+            except:
+                revenu_formate = f"${revenu_bl}" if revenu_bl != 'N/A' else 'N/A'
             st.write(f"**Revenu (Baseline) :** {revenu_formate}")
         with col2:
             st.subheader("Objectifs SMART")
@@ -212,7 +229,7 @@ def patient_dashboard():
 
     st.markdown("---")
 
-    # Demographic and Clinical Data
+    # Données Démographiques et Cliniques
     st.header("Données Démographiques et Cliniques")
     with st.container():
         col1, col2 = st.columns(2)
@@ -220,9 +237,9 @@ def patient_dashboard():
             st.subheader("Données Démographiques")
             demog_labels = ["Sexe", "Âge", "Années d'éducation (Baseline)", "Revenu (Baseline)"]
             demog_values = [
-                sex,  # Utilise le sexe mappé précédemment
+                sex,
                 patient_data['age'],
-                patient_data.get('annees_education_bl', 'N/A'),
+                education_years,
                 revenu_formate
             ]
             demog_df = pd.DataFrame({
@@ -233,10 +250,12 @@ def patient_dashboard():
         with col2:
             st.subheader("Données Cliniques")
             clin_labels = ["Comorbidités", "Enceinte", "Cigarettes (Baseline)", "Alcool (Baseline)", "Cocaïne (Baseline)"]
-            # Gestion de la colonne "pregnant"
+            # Correction de l'affichage de "Enceinte"
             pregnant_val = patient_data.get('pregnant', 'N/A')
-            if pregnant_val in ["Oui", "Non"]:
-                pregnant_display = pregnant_val
+            if pregnant_val == '1':
+                pregnant_display = "Oui"
+            elif pregnant_val == '0':
+                pregnant_display = "Non"
             else:
                 pregnant_display = "N/A"
             clin_values = [
@@ -254,7 +273,7 @@ def patient_dashboard():
 
     st.markdown("---")
 
-    # MADRS Scores
+    # Scores MADRS
     st.header("Scores MADRS")
     with st.container():
         col1, col2 = st.columns(2)
@@ -305,7 +324,7 @@ def patient_dashboard():
 
     st.markdown("---")
 
-    # PID-5 and PHQ-9 Progression
+    # Scores d'Évaluation (PID-5 et PHQ-9)
     st.header("Scores d'Évaluation")
     with st.container():
         col1, col2 = st.columns(2)
@@ -391,7 +410,7 @@ def patient_dashboard():
                         markers=True,
                         title="Progression PHQ-9",
                         template="plotly_white",
-                        color_discrete_sequence=[PASTEL_COLORS[2]]  # Utiliser une couleur pastel différente
+                        color_discrete_sequence=[PASTEL_COLORS[0]]  # Utiliser une couleur pastel différente
                     )
                     fig_phq9.update_layout(xaxis_title="Jour", yaxis_title="Score PHQ-9")
                     st.plotly_chart(fig_phq9, use_container_width=True)
@@ -400,7 +419,7 @@ def patient_dashboard():
 
     st.markdown("---")
 
-    # Nursing Inputs
+    # Entrées Infirmières
     st.header("Entrées Infirmières")
     with st.form(key='nursing_inputs_form'):
         objectives_input = st.text_area("Objectifs SMART", height=100, value=objectives)
@@ -409,11 +428,11 @@ def patient_dashboard():
         submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
-            save_nurse_inputs(nurse_csv_file, selected_patient_id, objectives_input, tasks_input, comments_input)
+            save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
 
     st.markdown("---")
 
-    # Display Saved Nursing Inputs
+    # Afficher les Entrées Infirmières Sauvegardées
     st.subheader("Entrées Infirmières Sauvegardées")
     if objectives or tasks or comments:
         st.write(f"**Objectifs :** {objectives if objectives else 'N/A'}")
@@ -422,7 +441,7 @@ def patient_dashboard():
     else:
         st.write("Aucune entrée sauvegardée.")
 
-# Nursing Inputs Page
+# Page "Entrées Infirmières"
 def nurse_inputs_page():
     if not selected_patient_id:
         st.warning("Aucun patient sélectionné.")
@@ -437,11 +456,11 @@ def nurse_inputs_page():
         submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
-            save_nurse_inputs(nurse_csv_file, selected_patient_id, objectives_input, tasks_input, comments_input)
+            save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
 
     st.markdown("---")
 
-    # Display Saved Nursing Inputs
+    # Afficher les Entrées Infirmières Sauvegardées
     st.subheader("Entrées Infirmières Sauvegardées")
     if nurse_inputs:
         st.write(f"**Objectifs :** {nurse_inputs.get('objectives', 'N/A')}")
@@ -450,7 +469,7 @@ def nurse_inputs_page():
     else:
         st.write("Aucune entrée sauvegardée.")
 
-# PID-5 Details Page
+# Page "Détails PID-5"
 def details_pid5_page():
     if not selected_patient_id:
         st.warning("Aucun patient sélectionné.")
@@ -478,21 +497,21 @@ def details_pid5_page():
         dimension_scores_bl[dimension] = baseline_score.sum()
         dimension_scores_fu[dimension] = followup_score.sum()
 
-    # Prepare data for the table
+    # Préparer les données pour le tableau
     table_data = []
     for dimension in pid5_dimensions_mapping.keys():
         table_data.append({
             "Domaine": dimension,
-            "Total Baseline": dimension_scores_bl[dimension],
-            "Total Jour 30": dimension_scores_fu[dimension]
+            "Total Baseline": f"{dimension_scores_bl[dimension]:,}",
+            "Total Jour 30": f"{dimension_scores_fu[dimension]:,}"
         })
 
     pid5_df = pd.DataFrame(table_data)
 
     st.subheader("Scores PID-5 par Domaine")
-    st.table(pid5_df.style.set_properties(**{'text-align': 'center'}))
+    st.table(pid5_df)
 
-    # Create Spider Chart
+    # Créer le graphique en araignée (spider plot) sans ligne de référence
     categories = list(pid5_dimensions_mapping.keys())
     values_bl = list(dimension_scores_bl.values())
     values_fu = list(dimension_scores_fu.values())
@@ -529,7 +548,7 @@ def details_pid5_page():
     )
     st.plotly_chart(fig_spider, use_container_width=True)
 
-# Main App Logic
+# Logique principale de l'application
 if page == "Tableau de Bord du Patient":
     patient_dashboard()
 elif page == "Entrées Infirmières":
