@@ -49,8 +49,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Change the working directory
-os.chdir("/Users/laurentelkrief/Desktop/Neuromod/Research/TableaudeBord/")
-logging.debug("New working directory: %s", os.getcwd())
+#os.chdir("/Users/laurentelkrief/Desktop/Neuromod/Research/TableaudeBord/")
+#logging.debug("New working directory: %s", os.getcwd())
 
 # Define data file paths
 csv_file = "final_data.csv"
