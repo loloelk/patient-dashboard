@@ -18,9 +18,12 @@ logging.basicConfig(
     ]
 )
 
+# Définir une palette de couleurs pastel pour les graphiques
+PASTEL_COLORS = px.colors.qualitative.Pastel
+
 # Set page configuration for better aesthetics
 st.set_page_config(
-    page_title="Patient Dashboard",
+    page_title="Tableau de Bord des Patients",
     page_icon=":hospital:",
     layout="wide",  # Use the entire screen width
     initial_sidebar_state="expanded",
@@ -48,10 +51,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Change the working directory
-#os.chdir("/Users/laurentelkrief/Desktop/Neuromod/Research/TableaudeBord/")
-#logging.debug("New working directory: %s", os.getcwd())
-
 # Define data file paths
 csv_file = "final_data.csv"
 
@@ -59,39 +58,39 @@ csv_file = "final_data.csv"
 @st.cache_data
 def load_data(csv_file):
     try:
-        data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='latin1')
-        logging.debug(f"Data loaded successfully from {csv_file}")
+        data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage à 'utf-8'
+        logging.debug(f"Données chargées avec succès depuis {csv_file}")
         return data
     except Exception as e:
-        logging.error(f"Error loading data from {csv_file}: {e}")
+        logging.error(f"Erreur lors du chargement des données depuis {csv_file}: {e}")
         return pd.DataFrame()
 
 # Load data
 final_data = load_data(csv_file)
-logging.debug("Final Data Columns: %s", final_data.columns.tolist())
-logging.debug("Final Data Sample:\n%s", final_data.head())
+logging.debug("Colonnes des données finales: %s", final_data.columns.tolist())
+logging.debug("Échantillon des données finales:\n%s", final_data.head())
 
 # MADRS Items Mapping
 madrs_items_mapping = {
-    1: "Apparent Sadness",
-    2: "Reported Sadness",
-    3: "Inner Tension",
-    4: "Reduced Sleep",
-    5: "Reduced Appetite",
-    6: "Concentration Difficulties",
+    1: "Tristesse Apparente",
+    2: "Tristesse Signalée",
+    3: "Tension Intérieure",
+    4: "Sommeil Réduit",
+    5: "Appétit Réduit",
+    6: "Difficultés de Concentration",
     7: "Lassitude",
-    8: "Inability to Feel",
-    9: "Pessimistic Thoughts",
-    10: "Suicidal Thoughts"
+    8: "Incapacité à Ressentir",
+    9: "Pensées Pessimistes",
+    10: "Pensées Suicidaires"
 }
 
 # PID-5 Dimensions Mapping
 pid5_dimensions_mapping = {
-    'Negative Affectivity': [8, 9, 10, 11, 15],
-    'Detachment': [4, 13, 14, 16, 18],
-    'Antagonism': [17, 19, 20, 22, 25],
-    'Disinhibition': [1, 2, 3, 5, 6],
-    'Psychoticism': [7, 12, 21, 23, 24]
+    'Affect Négatif': [8, 9, 10, 11, 15],
+    'Détachement': [4, 13, 14, 16, 18],
+    'Antagonisme': [17, 19, 20, 22, 25],
+    'Désinhibition': [1, 2, 3, 5, 6],
+    'Psychoticisme': [7, 12, 21, 23, 24]
 }
 
 # Check for PID-5 and PHQ-9 data availability
@@ -105,154 +104,169 @@ def extract_number(id_str):
 
 # Sidebar layout
 with st.sidebar:
-    st.title("Patient Dashboard")
+    st.title("Tableau de Bord des Patients")
     st.markdown("---")
     st.header("Navigation")
-    page = st.radio("Go to", ["Patient Dashboard", "Nursing Inputs", "PID-5 Details"])
+    page = st.radio("Aller à", ["Tableau de Bord du Patient", "Entrées Infirmières", "Détails PID-5"])
 
     st.markdown("---")
-    st.header("Select Patient")
+    st.header("Sélectionner un Patient")
     patient_ids = sorted(final_data["ID"].unique(), key=extract_number) if not final_data.empty else []
-    selected_patient_id = st.selectbox("Select Patient ID", patient_ids) if patient_ids else None
+    selected_patient_id = st.selectbox("Sélectionner l'ID du Patient", patient_ids) if patient_ids else None
 
 # Function to load nurse inputs from CSV
 def load_nurse_inputs(patient_id):
     try:
-        nurse_data = pd.read_csv(csv_file, dtype={'ID': str})
+        nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage
         row = nurse_data[nurse_data["ID"] == patient_id]
         if not row.empty:
             return row.iloc[0][["objectives", "tasks", "comments"]].fillna("")
         else:
             return {"objectives": "", "tasks": "", "comments": ""}
     except Exception as e:
-        logging.error(f"Error loading nursing inputs from {csv_file}: {e}")
+        logging.error(f"Erreur lors du chargement des entrées infirmières depuis {csv_file}: {e}")
         return {"objectives": "", "tasks": "", "comments": ""}
 
 # Function to save nurse inputs to CSV
 def save_nurse_inputs(patient_id, objectives, tasks, comments):
     try:
-        nurse_data = pd.read_csv(csv_file, dtype={'ID': str})
+        nurse_data = pd.read_csv(csv_file, dtype={'ID': str}, encoding='utf-8')  # Changement d'encodage
         if patient_id in nurse_data["ID"].values:
             nurse_data.loc[nurse_data["ID"] == patient_id, ["objectives", "tasks", "comments"]] = [objectives, tasks, comments]
         else:
             new_entry = {"ID": patient_id, "objectives": objectives, "tasks": tasks, "comments": comments}
             nurse_data = nurse_data.append(new_entry, ignore_index=True)
-        nurse_data.to_csv(csv_file, index=False)
-        logging.debug(f"Nursing inputs saved for ID {patient_id}")
-        st.success("Nursing inputs saved successfully.")
+        nurse_data.to_csv(csv_file, index=False, encoding='utf-8')  # Changement d'encodage
+        logging.debug(f"Entrées infirmières sauvegardées pour l'ID {patient_id}")
+        st.success("Entrées infirmières sauvegardées avec succès.")
     except Exception as e:
-        logging.error(f"Error saving nursing inputs for ID {patient_id}: {e}")
-        st.error("Error saving nursing inputs.")
+        logging.error(f"Erreur lors de la sauvegarde des entrées infirmières pour l'ID {patient_id}: {e}")
+        st.error("Erreur lors de la sauvegarde des entrées infirmières.")
 
 # Patient Dashboard Page
 def patient_dashboard():
     if not selected_patient_id:
-        st.warning("No patient selected.")
+        st.warning("Aucun patient sélectionné.")
         return
 
     patient_data = final_data[final_data["ID"] == selected_patient_id].iloc[0]
 
     # Patient Information and SMART Objectives
-    st.header("Patient Overview")
+    st.header("Aperçu du Patient")
 
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Patient Information")
-            st.write(f"**Age:** {patient_data['age']}")
+            st.subheader("Informations du Patient")
+            st.write(f"**Âge :** {patient_data['age']}")
             sex_numeric = patient_data['sexe']
-            sex = "Male" if sex_numeric == '1' else "Female" if sex_numeric == '2' else "Other"
-            st.write(f"**Sex:** {sex}")
-            st.write(f"**Education Years (Baseline):** {patient_data.get('annees_education_bl', 'N/A')}")
-            st.write(f"**Income (Baseline):** {patient_data.get('revenu_bl', 'N/A')}")
+            sex = "Homme" if sex_numeric == '1' else "Femme" if sex_numeric == '2' else "Autre"
+            st.write(f"**Sexe :** {sex}")
+            annees_education = patient_data.get('annees_education_bl', 'N/A')
+            st.write(f"**Années d'éducation (Baseline) :** {annees_education}")
+            revenu_bl = patient_data.get('revenu_bl', 'N/A')
+            revenu_formate = f"${revenu_bl}" if pd.notna(revenu_bl) and revenu_bl != 'N/A' else 'N/A'
+            st.write(f"**Revenu (Baseline) :** {revenu_formate}")
         with col2:
-            st.subheader("SMART Objectives")
+            st.subheader("Objectifs SMART")
             objectives = patient_data.get("objectives", "N/A")
             tasks = patient_data.get("tasks", "N/A")
             comments = patient_data.get("comments", "N/A")
-            st.write(f"**Objectives:** {objectives}")
-            st.write(f"**Tasks:** {tasks}")
-            st.write(f"**Comments:** {comments}")
+            st.write(f"**Objectifs :** {objectives}")
+            st.write(f"**Tâches :** {tasks}")
+            st.write(f"**Commentaires :** {comments}")
 
     st.markdown("---")
 
     # Demographic and Clinical Data
-    st.header("Demographic and Clinical Data")
+    st.header("Données Démographiques et Cliniques")
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Demographic Data")
+            st.subheader("Données Démographiques")
             demog_cols = ["sexe", "age", "annees_education_bl", "revenu_bl"]
-            demog_data = patient_data[demog_cols].rename(index={
-                "sexe": "Sex",
-                "age": "Age",
-                "annees_education_bl": "Education Years (Baseline)",
-                "revenu_bl": "Income (Baseline)"
+            demog_labels = ["Sexe", "Âge", "Années d'éducation (Baseline)", "Revenu (Baseline)"]
+            demog_values = [
+                "Homme" if patient_data['sexe'] == '1' else "Femme" if patient_data['sexe'] == '2' else "Autre",
+                patient_data['age'],
+                patient_data.get('annees_education_bl', 'N/A'),
+                f"${patient_data.get('revenu_bl', 'N/A')}" if pd.notna(patient_data.get('revenu_bl', np.nan)) else 'N/A'
+            ]
+            demog_df = pd.DataFrame({
+                "": demog_labels,
+                "Valeurs": demog_values
             })
-            demog_df = pd.DataFrame(demog_data).T
-            demog_df['Sex'] = demog_df['Sex'].apply(lambda x: "Male" if x == '1' else "Female" if x == '2' else "Other")
             st.table(demog_df)
         with col2:
-            st.subheader("Clinical Data")
+            st.subheader("Données Cliniques")
             clin_cols = ["comorbidities", "pregnant", "cigarette_bl", "alcool_bl", "cocaine_bl"]
-            clin_data = patient_data[clin_cols].rename(index={
-                "comorbidities": "Comorbidities",
-                "pregnant": "Pregnant",
-                "cigarette_bl": "Cigarettes (Baseline)",
-                "alcool_bl": "Alcohol (Baseline)",
-                "cocaine_bl": "Cocaine (Baseline)"
+            clin_labels = ["Comorbidités", "Enceinte", "Cigarettes (Baseline)", "Alcool (Baseline)", "Cocaïne (Baseline)"]
+            # Gestion de la colonne "pregnant"
+            pregnant_val = patient_data.get('pregnant', np.nan)
+            if pd.isna(pregnant_val):
+                pregnant_display = "N/A"
+            else:
+                pregnant_display = "Oui" if pregnant_val == 1 else "Non" if pregnant_val == 0 else "N/A"
+            clin_values = [
+                patient_data.get('comorbidities', 'N/A'),
+                pregnant_display,
+                patient_data.get('cigarette_bl', 'N/A'),
+                patient_data.get('alcool_bl', 'N/A'),
+                patient_data.get('cocaine_bl', 'N/A')
+            ]
+            clin_df = pd.DataFrame({
+                "": clin_labels,
+                "Valeurs": clin_values
             })
-            clin_df = pd.DataFrame(clin_data).T
-            clin_df['Pregnant'] = clin_df['Pregnant'].map({1: "Yes", 0: "No"})
             st.table(clin_df)
 
     st.markdown("---")
 
     # MADRS Scores
-    st.header("MADRS Scores")
+    st.header("Scores MADRS")
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Total MADRS Score")
+            st.subheader("Score Total MADRS")
             madrs_total = {
                 "Baseline": patient_data.get("madrs_score_bl", 0),
-                "Day 30": patient_data.get("madrs_score_fu", 0)
+                "Jour 30": patient_data.get("madrs_score_fu", 0)
             }
             fig_madrs = px.bar(
                 x=list(madrs_total.keys()),
                 y=list(madrs_total.values()),
-                labels={"x": "Time", "y": "MADRS Score"},
+                labels={"x": "Temps", "y": "Score MADRS"},
                 color=list(madrs_total.keys()),
-                color_discrete_sequence=px.colors.qualitative.Plotly,
-                title="Total MADRS Score"
+                color_discrete_sequence=PASTEL_COLORS,
+                title="Score Total MADRS"
             )
             st.plotly_chart(fig_madrs, use_container_width=True)
         with col2:
-            st.subheader("MADRS Item Scores")
+            st.subheader("Scores par Item MADRS")
             madrs_items = patient_data.filter(regex=r"^madrs[_.]\d+[_.](bl|fu)$")
             if madrs_items.empty:
-                st.warning("No MADRS item scores found for this patient.")
+                st.warning("Aucun score par item MADRS trouvé pour ce patient.")
             else:
                 madrs_items_df = madrs_items.to_frame().T
                 madrs_long = madrs_items_df.melt(var_name="Item", value_name="Score").dropna()
-                madrs_long["Time"] = madrs_long["Item"].str.extract("_(bl|fu)$")[0]
-                madrs_long["Time"] = madrs_long["Time"].map({"bl": "Baseline", "fu": "Day 30"})
+                madrs_long["Temps"] = madrs_long["Item"].str.extract("_(bl|fu)$")[0]
+                madrs_long["Temps"] = madrs_long["Temps"].map({"bl": "Baseline", "fu": "Jour 30"})
                 madrs_long["Item"] = madrs_long["Item"].str.extract(r"madrs[_.](\d+)_")[0].astype(int)
                 madrs_long["Item"] = madrs_long["Item"].map(madrs_items_mapping)
                 madrs_long.dropna(subset=["Item"], inplace=True)
 
                 if madrs_long.empty:
-                    st.warning("All MADRS item scores are NaN.")
+                    st.warning("Tous les scores par item MADRS sont NaN.")
                 else:
                     fig = px.bar(
                         madrs_long,
                         x="Item",
                         y="Score",
-                        color="Time",
+                        color="Temps",
                         barmode="group",
-                        title="MADRS Item Scores",
+                        title="Scores par Item MADRS",
                         template="plotly_white",
-                        color_discrete_sequence=px.colors.qualitative.Set2
+                        color_discrete_sequence=PASTEL_COLORS
                     )
                     fig.update_xaxes(tickangle=-45)
                     st.plotly_chart(fig, use_container_width=True)
@@ -260,12 +274,12 @@ def patient_dashboard():
     st.markdown("---")
 
     # PID-5 and PHQ-9 Progression
-    st.header("Assessment Scores")
+    st.header("Scores d'Évaluation")
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
             if has_pid5:
-                st.subheader("PID-5 Scores")
+                st.subheader("Scores PID-5")
                 pid5_columns_bl = []
                 pid5_columns_fu = []
                 for dimension, items in pid5_dimensions_mapping.items():
@@ -273,7 +287,7 @@ def patient_dashboard():
                     pid5_columns_fu += [f'pid5_{item}_fu' for item in items]
 
                 if not set(pid5_columns_bl + pid5_columns_fu).issubset(final_data.columns):
-                    st.warning("Incomplete PID-5 data for this patient.")
+                    st.warning("Données PID-5 incomplètes pour ce patient.")
                 else:
                     dimension_scores_bl = {}
                     dimension_scores_fu = {}
@@ -303,26 +317,25 @@ def patient_dashboard():
                         r=values_fu,
                         theta=categories,
                         fill='toself',
-                        name='Day 30',
+                        name='Jour 30',
                         line_color='red'
                     ))
                     fig_spider.update_layout(
                         polar=dict(
                             radialaxis=dict(
-                                visible=True,
-                                range=[0, max(values_bl + values_fu)]
+                                visible=False  # Suppression des étiquettes et ticks de l'axe radial
                             )
                         ),
                         showlegend=True,
-                        title="PID-5 Dimension Scores",
+                        title="Scores par Dimension PID-5",
                         template="plotly_white"
                     )
                     st.plotly_chart(fig_spider, use_container_width=True)
             else:
-                st.info("PID-5 data is not available.")
+                st.info("Les données PID-5 ne sont pas disponibles.")
         with col2:
             if has_phq9:
-                st.subheader("PHQ-9 Progression")
+                st.subheader("Progression PHQ-9")
                 phq9_days = [5, 10, 15, 20, 25, 30]
                 phq9_scores = {}
                 missing_phq9 = False
@@ -332,35 +345,35 @@ def patient_dashboard():
                         missing_phq9 = True
                         break
                     phq9_score = patient_data[item_columns].sum()
-                    phq9_scores[f'Day {day}'] = phq9_score
+                    phq9_scores[f'Jour {day}'] = phq9_score
 
                 if missing_phq9:
-                    st.warning("Incomplete PHQ-9 data for this patient.")
+                    st.warning("Données PHQ-9 incomplètes pour ce patient.")
                 else:
-                    phq9_df = pd.DataFrame(list(phq9_scores.items()), columns=["Day", "Score"])
+                    phq9_df = pd.DataFrame(list(phq9_scores.items()), columns=["Jour", "Score"])
                     fig_phq9 = px.line(
                         phq9_df,
-                        x="Day",
+                        x="Jour",
                         y="Score",
                         markers=True,
-                        title="PHQ-9 Progression",
+                        title="Progression PHQ-9",
                         template="plotly_white",
-                        color_discrete_sequence=['#e74c3c']
+                        color_discrete_sequence=['#AEC6CF']  # Couleur pastel
                     )
-                    fig_phq9.update_layout(xaxis_title="Day", yaxis_title="PHQ-9 Score")
+                    fig_phq9.update_layout(xaxis_title="Jour", yaxis_title="Score PHQ-9")
                     st.plotly_chart(fig_phq9, use_container_width=True)
             else:
-                st.info("PHQ-9 data is not available.")
+                st.info("Les données PHQ-9 ne sont pas disponibles.")
 
     st.markdown("---")
 
     # Nursing Inputs
-    st.header("Nursing Inputs")
+    st.header("Entrées Infirmières")
     with st.form(key='nursing_inputs_form'):
-        objectives_input = st.text_area("SMART Objectives", height=100, value=objectives)
-        tasks_input = st.text_area("Behavioral Activation Tasks", height=100, value=tasks)
-        comments_input = st.text_area("Comments", height=100, value=comments)
-        submit_button = st.form_submit_button(label='Save')
+        objectives_input = st.text_area("Objectifs SMART", height=100, value=objectives)
+        tasks_input = st.text_area("Tâches d'Activation Comportementale", height=100, value=tasks)
+        comments_input = st.text_area("Commentaires", height=100, value=comments)
+        submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
             save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
@@ -368,27 +381,27 @@ def patient_dashboard():
     st.markdown("---")
 
     # Display Saved Nursing Inputs
-    st.subheader("Saved Nursing Inputs")
+    st.subheader("Entrées Infirmières Sauvegardées")
     if objectives or tasks or comments:
-        st.write(f"**Objectives:** {objectives if objectives else 'N/A'}")
-        st.write(f"**Tasks:** {tasks if tasks else 'N/A'}")
-        st.write(f"**Comments:** {comments if comments else 'N/A'}")
+        st.write(f"**Objectifs :** {objectives if objectives else 'N/A'}")
+        st.write(f"**Tâches :** {tasks if tasks else 'N/A'}")
+        st.write(f"**Commentaires :** {comments if comments else 'N/A'}")
     else:
-        st.write("No inputs saved.")
+        st.write("Aucune entrée sauvegardée.")
 
 # Nursing Inputs Page
 def nurse_inputs_page():
     if not selected_patient_id:
-        st.warning("No patient selected.")
+        st.warning("Aucun patient sélectionné.")
         return
 
-    st.header("Nursing Inputs")
+    st.header("Entrées Infirmières")
     nurse_inputs = load_nurse_inputs(selected_patient_id)
     with st.form(key='nursing_inputs_form'):
-        objectives_input = st.text_area("SMART Objectives", height=100, value=nurse_inputs.get("objectives", ""))
-        tasks_input = st.text_area("Behavioral Activation Tasks", height=100, value=nurse_inputs.get("tasks", ""))
-        comments_input = st.text_area("Comments", height=100, value=nurse_inputs.get("comments", ""))
-        submit_button = st.form_submit_button(label='Save')
+        objectives_input = st.text_area("Objectifs SMART", height=100, value=nurse_inputs.get("objectives", ""))
+        tasks_input = st.text_area("Tâches d'Activation Comportementale", height=100, value=nurse_inputs.get("tasks", ""))
+        comments_input = st.text_area("Commentaires", height=100, value=nurse_inputs.get("comments", ""))
+        submit_button = st.form_submit_button(label='Sauvegarder')
 
         if submit_button:
             save_nurse_inputs(selected_patient_id, objectives_input, tasks_input, comments_input)
@@ -396,22 +409,22 @@ def nurse_inputs_page():
     st.markdown("---")
 
     # Display Saved Nursing Inputs
-    st.subheader("Saved Nursing Inputs")
+    st.subheader("Entrées Infirmières Sauvegardées")
     if nurse_inputs:
-        st.write(f"**Objectives:** {nurse_inputs.get('objectives', 'N/A')}")
-        st.write(f"**Tasks:** {nurse_inputs.get('tasks', 'N/A')}")
-        st.write(f"**Comments:** {nurse_inputs.get('comments', 'N/A')}")
+        st.write(f"**Objectifs :** {nurse_inputs.get('objectives', 'N/A')}")
+        st.write(f"**Tâches :** {nurse_inputs.get('tasks', 'N/A')}")
+        st.write(f"**Commentaires :** {nurse_inputs.get('comments', 'N/A')}")
     else:
-        st.write("No inputs saved.")
+        st.write("Aucune entrée sauvegardée.")
 
 # PID-5 Details Page
 def details_pid5_page():
     if not selected_patient_id:
-        st.warning("No patient selected.")
+        st.warning("Aucun patient sélectionné.")
         return
 
     if not has_pid5:
-        st.info("PID-5 data is not available.")
+        st.info("Les données PID-5 ne sont pas disponibles.")
         return
 
     patient_data = final_data[final_data["ID"] == selected_patient_id].iloc[0]
@@ -421,7 +434,7 @@ def details_pid5_page():
         pid5_columns += [f'pid5_{item}_bl' for item in items] + [f'pid5_{item}_fu' for item in items]
 
     if not set(pid5_columns).issubset(final_data.columns):
-        st.warning("Incomplete PID-5 data for this patient.")
+        st.warning("Données PID-5 incomplètes pour ce patient.")
         return
 
     dimension_scores_bl = {}
@@ -436,14 +449,14 @@ def details_pid5_page():
     table_data = []
     for dimension in pid5_dimensions_mapping.keys():
         table_data.append({
-            "Domain": dimension,
+            "Domaine": dimension,
             "Total Baseline": dimension_scores_bl[dimension],
-            "Total Day 30": dimension_scores_fu[dimension]
+            "Total Jour 30": dimension_scores_fu[dimension]
         })
 
     pid5_df = pd.DataFrame(table_data)
 
-    st.subheader("PID-5 Scores by Domain")
+    st.subheader("Scores PID-5 par Domaine")
     st.table(pid5_df.style.set_properties(**{'text-align': 'center'}))
 
     # Create Spider Chart
@@ -461,32 +474,31 @@ def details_pid5_page():
         theta=categories,
         fill='toself',
         name='Baseline',
-        line_color='blue'
+        line_color=PASTEL_COLORS[0]
     ))
     fig_spider.add_trace(go.Scatterpolar(
         r=values_fu,
         theta=categories,
         fill='toself',
-        name='Day 30',
-        line_color='red'
+        name='Jour 30',
+        line_color=PASTEL_COLORS[1]
     ))
     fig_spider.update_layout(
         polar=dict(
             radialaxis=dict(
-                visible=True,
-                range=[0, max(values_bl + values_fu)]
+                visible=False  # Suppression des étiquettes et ticks de l'axe radial
             )
         ),
         showlegend=True,
-        title="PID-5 Dimension Scores",
+        title="Scores par Dimension PID-5",
         template="plotly_white"
     )
     st.plotly_chart(fig_spider, use_container_width=True)
 
 # Main App Logic
-if page == "Patient Dashboard":
+if page == "Tableau de Bord du Patient":
     patient_dashboard()
-elif page == "Nursing Inputs":
+elif page == "Entrées Infirmières":
     nurse_inputs_page()
-elif page == "PID-5 Details":
+elif page == "Détails PID-5":
     details_pid5_page()
