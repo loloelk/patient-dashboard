@@ -4,3 +4,5 @@ pandas
 plotly
 pyyaml
 bcrypt
+sqlite3
+logging
