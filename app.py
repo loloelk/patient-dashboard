@@ -375,7 +375,8 @@ def patient_dashboard():
                     fig_spider.update_layout(
                         polar=dict(
                             radialaxis=dict(
-                                visible=False  # Suppression des étiquettes et ticks de l'axe radial
+                                visible=False,  # Suppression des étiquettes et ticks de l'axe radial
+                                range=[0, 15]  # Limiter l'axe radial à 15
                             )
                         ),
                         showlegend=True,
@@ -539,7 +540,8 @@ def details_pid5_page():
     fig_spider.update_layout(
         polar=dict(
             radialaxis=dict(
-                visible=False  # Suppression des étiquettes et ticks de l'axe radial
+                visible=False,  # Suppression des étiquettes et ticks de l'axe radial
+                range=[0, 15]   # Limiter l'axe radial à 15
             )
         ),
         showlegend=True,
