@@ -29,28 +29,119 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Appliquer du CSS personnalisé pour le style (sans cacher les colonnes)
+# Appliquer du CSS personnalisé pour le style (compatible light et dark mode)
 st.markdown("""
     <style>
-        /* Ajuster les tailles de police */
-        h1, h2, h3, h4 {
-            color: #2c3e50;
+        /* Light Mode Styles */
+        @media (prefers-color-scheme: light) {
+            /* Typography */
+            body {
+                font-family: 'Roboto', sans-serif;
+            }
+            h1, h2, h3, h4 {
+                color: #2c3e50;
+                font-weight: 600;
+            }
+            /* Sidebar */
+            [data-testid="stSidebar"] {
+                background-color: #ecf0f1;
+                padding: 2rem;
+            }
+            /* Main Content */
+            .reportview-container .main .block-container {
+                padding-top: 3rem;
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+            /* DataFrame Tables */
+            .dataframe th, .dataframe td {
+                padding: 0.5rem;
+                text-align: left;
+                background-color: #ffffff;
+                color: #000000;
+            }
+            .dataframe thead th {
+                background-color: #34495e !important;
+                color: #ffffff !important;
+            }
+            /* Form Elements */
+            textarea, input, select {
+                background-color: #ffffff;
+                color: #000000;
+            }
+            /* Buttons */
+            .stButton>button {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+                padding: 0.5rem 1rem;
+            }
+            .stButton>button:hover {
+                background-color: #45a049;
+            }
         }
-        /* Style de la barre latérale */
-        [data-testid="stSidebar"] {
-            background-color: #ecf0f1;
+
+        /* Dark Mode Styles */
+        @media (prefers-color-scheme: dark) {
+            /* Typography */
+            body {
+                font-family: 'Roboto', sans-serif;
+            }
+            h1, h2, h3, h4 {
+                color: #ffffff;
+                font-weight: 600;
+            }
+            /* Sidebar */
+            [data-testid="stSidebar"] {
+                background-color: #1e1e1e;
+                padding: 2rem;
+            }
+            /* Main Content */
+            .reportview-container .main .block-container {
+                padding-top: 3rem;
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+            /* DataFrame Tables */
+            .dataframe th, .dataframe td {
+                padding: 0.5rem;
+                text-align: left;
+                color: #ffffff;
+                background-color: #2c2c2c;
+            }
+            .dataframe thead th {
+                background-color: #34495e !important;
+                color: #ffffff !important;
+            }
+            /* Form Elements */
+            textarea, input, select {
+                background-color: #3c3c3c;
+                color: #ffffff;
+            }
+            /* Buttons */
+            .stButton>button {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+                padding: 0.5rem 1rem;
+            }
+            .stButton>button:hover {
+                background-color: #45a049;
+            }
         }
-        /* Style de la zone de contenu principal */
-        .reportview-container .main .block-container {
-            padding-top: 2rem;
-        }
-        /* Style des tableaux */
-        .dataframe th, .dataframe td {
-            padding: 0.5rem;
-            text-align: left;
+
+        /* Universal Styles */
+        /* Ensure tables are responsive */
+        .dataframe {
+            width: 100%;
+            overflow-x: auto;
         }
     </style>
 """, unsafe_allow_html=True)
+
+# ... [Rest of your code remains unchanged] ...
+
+# (Ensure that all other parts of your code use Streamlit's components effectively)
 
 # Définir le chemin du fichier de données
 csv_file = "final_data_utf8.csv"  # Utilisez le fichier converti en UTF-8
